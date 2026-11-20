@@ -3,28 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tingo Tango - Modalidades de Exportación | Prof. Alberto Araque A.</title>
+  <title>Tingo Tango - Diplomado Sinú | Prof. Alberto Araque A.</title>
+  <script src="/socket.io/socket.io.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       text-align: center;
       background: #121212;
       color: white;
-      padding: 20px;
+      padding: 16px;
       margin: 0;
     }
     .card {
       background: #1e1e1e;
       border-radius: 16px;
-      padding: 25px;
-      margin: 20px auto;
-      max-width: 500px;
+      padding: 24px;
+      margin: 16px auto;
+      max-width: 480px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     }
     .top-bar {
       display: flex;
-      justify-content: flex-end;
-      margin-bottom: 5px;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: #a0a0a0;
     }
     .btn-audio {
       background: #2b2b2b;
@@ -35,17 +39,14 @@
       border-radius: 20px;
       cursor: pointer;
     }
-    .btn-audio:hover {
-      background: #363636;
-    }
     h1 {
       color: #e63946;
-      margin-bottom: 5px;
+      margin: 6px 0 4px 0;
       font-size: 24px;
     }
     h3 {
       color: #4cc9f0;
-      margin-top: 0;
+      margin: 0 0 4px 0;
       font-size: 15px;
       font-weight: 400;
     }
@@ -56,10 +57,10 @@
     }
     input {
       padding: 12px;
-      width: 78%;
+      width: 82%;
       border-radius: 8px;
       border: 1px solid #333;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
       font-size: 16px;
       text-align: center;
       background: #2b2b2b;
@@ -68,21 +69,6 @@
     }
     input:focus {
       border-color: #4cc9f0;
-    }
-    .lista-jugadores {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: center;
-      margin: 12px 0 18px 0;
-    }
-    .chip {
-      background: #2b2b2b;
-      border: 1px solid #3d3d3d;
-      color: #f1faee;
-      padding: 5px 12px;
-      border-radius: 999px;
-      font-size: 13px;
     }
     button.main-btn {
       background: #e63946;
@@ -94,31 +80,44 @@
       border-radius: 8px;
       cursor: pointer;
       transition: 0.2s;
-      width: 85%;
-      margin-top: 6px;
+      width: 86%;
     }
     button.main-btn:hover {
       background: #d62828;
     }
-    button.sec-btn {
-      background: #2b2b2b;
-      color: #4cc9f0;
-      border: 1px solid #4cc9f0;
-      padding: 8px 16px;
-      font-size: 13px;
-      font-weight: bold;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-bottom: 12px;
+    .conectados-box {
+      background: #171717;
+      border: 1px solid #2c2c2c;
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 16px;
     }
-    button.sec-btn:hover {
-      background: rgba(76, 201, 240, 0.12);
+    .conectados-titulo {
+      font-size: 12px;
+      color: #4cc9f0;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .lista-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+    .chip {
+      background: #2b2b2b;
+      border: 1px solid #3d3d3d;
+      color: #f1faee;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 13px;
     }
     .pelota {
       font-size: 1.8rem;
       color: #ffb703;
       font-weight: bold;
-      margin-top: 15px;
+      margin-top: 14px;
       min-height: 42px;
     }
     .pelota.activa {
@@ -154,6 +153,7 @@
 
   <div class="card">
     <div class="top-bar">
+      <span id="contadorSala">Conectados: 0</span>
       <button id="btnMusica" class="btn-audio" onclick="toggleMusica()">🎵 Música: ON</button>
     </div>
 
@@ -161,20 +161,14 @@
     <h3>Modalidades de Exportación y Régimen Aduanero</h3>
     <div class="docente">Docente: Alberto Araque A.</div>
 
-    <!-- Paso 1: Agregar participantes en la sala web -->
     <div id="registro">
-      <input type="text" id="nombreInput" placeholder="Nombre del estudiante o participante" onkeydown="if(event.key==='Enter') agregarJugador()">
+      <input type="text" id="nombreInput" placeholder="Escribe tu nombre y apellido" onkeydown="if(event.key==='Enter') unirme()">
       <br>
-      <button class="sec-btn" onclick="agregarJugador()">+ Agregar Participante</button>
-
-      <div id="listaJugadores" class="lista-jugadores"></div>
-
-      <button class="main-btn" onclick="entrarAlJuego()">Ir a Jugar</button>
+      <button class="main-btn" onclick="unirme()">Unirme a la Sala</button>
     </div>
 
-    <!-- Paso 2: Pantalla de juego -->
     <div id="pantallaJuego" style="display:none;">
-      <h2 id="estado">Listo para comenzar</h2>
+      <h2 id="estado">Esperando inicio de ronda...</h2>
       <div id="poseedor" class="pelota">---</div>
 
       <div id="seccionPenitencia" class="penitencia" style="display:none;">
@@ -185,104 +179,30 @@
       </div>
 
       <br>
-      <button id="btnIniciar" class="main-btn" onclick="iniciarRonda()">¡Iniciar Ronda!</button>
-      <button class="sec-btn" style="margin-top:10px;" onclick="volverRegistro()">Editar Participantes</button>
+      <button class="main-btn" onclick="iniciar()">¡Iniciar Ronda!</button>
+    </div>
+
+    <div class="conectados-box">
+      <div class="conectados-titulo">Participantes en sala</div>
+      <div id="listaConectados" class="lista-chips">
+        <span style="color:#777; font-size:13px;">Aún no hay participantes...</span>
+      </div>
     </div>
   </div>
 
   <script>
+    const socket = io();
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
     let musicaActiva = true;
     let ritmoInterval = null;
     let pasoRitmo = 0;
 
-    let jugadores = [];
-    let intervaloPelota = null;
-    let timeoutTango = null;
-    let indiceActual = 0;
-    let rondaActiva = false;
-
-    // Preguntas de la dinámica
-    const bancoPreguntas = [
-      {
-        categoria: "Autoridad Aduanera",
-        texto: "¿Nos explica brevemente qué conoce usted de la DIAN?"
-      },
-      {
-        categoria: "Régimen Franco",
-        texto: "¿Nos explica qué conoce de una Zona Franca?"
-      },
-      {
-        categoria: "Negociación Internacional",
-        texto: "¿Qué son los términos de negociación internacional - INCOTERMS?"
-      },
-      {
-        categoria: "Clasificación y Tributos",
-        texto: "¿Qué logramos entender por Arancel de Aduanas?"
-      }
-    ];
-
-    let colaPreguntas = [];
-
-    function obtenerSiguientePregunta() {
-      if (colaPreguntas.length === 0) {
-        colaPreguntas = [...bancoPreguntas].sort(() => Math.random() - 0.5);
-      }
-      return colaPreguntas.pop();
-    }
-
-    function renderizarJugadores() {
-      const contenedor = document.getElementById('listaJugadores');
-      contenedor.innerHTML = '';
-      jugadores.forEach((nombre, idx) => {
-        const chip = document.createElement('span');
-        chip.className = 'chip';
-        chip.innerHTML = `${nombre} <span style="cursor:pointer;color:#e63946;margin-left:6px;" onclick="quitarJugador(${idx})">✕</span>`;
-        contenedor.appendChild(chip);
-      });
-    }
-
-    function agregarJugador() {
-      const input = document.getElementById('nombreInput');
-      const nombre = input.value.trim();
-      if (!nombre) return;
-      jugadores.push(nombre);
-      input.value = '';
-      input.focus();
-      renderizarJugadores();
-    }
-
-    function quitarJugador(idx) {
-      jugadores.splice(idx, 1);
-      renderizarJugadores();
-    }
-
-    function entrarAlJuego() {
-      if (jugadores.length === 0) {
-        alert('Agrega al menos un participante antes de continuar.');
-        return;
-      }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-      document.getElementById('registro').style.display = 'none';
-      document.getElementById('pantallaJuego').style.display = 'block';
-    }
-
-    function volverRegistro() {
-      detenerRonda();
-      document.getElementById('pantallaJuego').style.display = 'none';
-      document.getElementById('registro').style.display = 'block';
-    }
-
     function toggleMusica() {
       musicaActiva = !musicaActiva;
       document.getElementById('btnMusica').innerText = musicaActiva ? '🎵 Música: ON' : '🔇 Música: OFF';
       if (!musicaActiva) {
         detenerMusicaFondo();
-      } else if (rondaActiva) {
-        iniciarMusicaFondo();
       }
     }
 
@@ -376,59 +296,61 @@
       });
     }
 
-    function detenerRonda() {
-      rondaActiva = false;
-      if (intervaloPelota) clearInterval(intervaloPelota);
-      if (timeoutTango) clearTimeout(timeoutTango);
-      intervaloPelota = null;
-      timeoutTango = null;
-      detenerMusicaFondo();
-      document.getElementById('btnIniciar').disabled = false;
+    function unirme() {
+      const nombre = document.getElementById('nombreInput').value.trim();
+      if (nombre) {
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        socket.emit('unirse', nombre);
+        document.getElementById('registro').style.display = 'none';
+        document.getElementById('pantallaJuego').style.display = 'block';
+      }
     }
 
-    function iniciarRonda() {
-      if (jugadores.length === 0 || rondaActiva) return;
-
+    function iniciar() {
       if (audioCtx.state === 'suspended') {
         audioCtx.resume();
       }
+      socket.emit('iniciarJuego');
+    }
 
-      detenerRonda();
-      rondaActiva = true;
-      document.getElementById('btnIniciar').disabled = true;
+    socket.on('listaJugadores', (lista) => {
+      document.getElementById('contadorSala').innerText = 'Conectados: ' + lista.length;
+      const contenedor = document.getElementById('listaConectados');
+      if (!lista || lista.length === 0) {
+        contenedor.innerHTML = '<span style="color:#777; font-size:13px;">Aún no hay participantes...</span>';
+        return;
+      }
+      contenedor.innerHTML = lista
+        .map((j) => `<span class="chip">👤 ${j.nombre}</span>`)
+        .join('');
+    });
+
+    socket.on('estadoPelota', (data) => {
+      if (!ritmoInterval) {
+        iniciarMusicaFondo();
+      }
       document.getElementById('seccionPenitencia').style.display = 'none';
       document.getElementById('estado').innerText = 'Tingo, tingo, tingo...';
-
-      indiceActual = Math.floor(Math.random() * jugadores.length);
       const poseedorEl = document.getElementById('poseedor');
-      poseedorEl.innerText = '👉 ' + jugadores[indiceActual];
+      poseedorEl.innerText = '👉 ' + data.poseedor.nombre;
       poseedorEl.classList.add('activa');
-
-      iniciarMusicaFondo();
       reproducirSonidoTingo();
+    });
 
-      const duracionMs = Math.floor(Math.random() * 5500) + 4500; // Entre 4.5 y 10 segundos
+    socket.on('tangoFinal', (data) => {
+      const poseedorEl = document.getElementById('poseedor');
+      poseedorEl.classList.remove('activa');
+      document.getElementById('estado').innerText = '¡TANGO! 🛑';
+      poseedorEl.innerText = 'Le tocó a: ' + data.perdedor.nombre;
 
-      intervaloPelota = setInterval(() => {
-        indiceActual = (indiceActual + 1) % jugadores.length;
-        poseedorEl.innerText = '👉 ' + jugadores[indiceActual];
-        reproducirSonidoTingo();
-      }, 750);
+      document.getElementById('categoriaPregunta').innerText = data.categoria || 'Pregunta de Clase';
+      document.getElementById('textoPenitencia').innerText = data.penitencia;
+      document.getElementById('seccionPenitencia').style.display = 'block';
 
-      timeoutTango = setTimeout(() => {
-        detenerRonda();
-        poseedorEl.classList.remove('activa');
-        document.getElementById('estado').innerText = '¡TANGO! 🛑';
-        poseedorEl.innerText = 'Le tocó a: ' + jugadores[indiceActual];
-
-        const pregunta = obtenerSiguientePregunta();
-        document.getElementById('categoriaPregunta').innerText = pregunta.categoria;
-        document.getElementById('textoPenitencia').innerText = pregunta.texto;
-        document.getElementById('seccionPenitencia').style.display = 'block';
-
-        reproducirSonidoTango();
-      }, duracionMs);
-    }
+      reproducirSonidoTango();
+    });
   </script>
 </body>
 </html>

@@ -1,0 +1,13 @@
+{
+  "name": "tingo-tango-diplomado-sinu",
+  "version": "1.0.0",
+  "description": "Juego multijugador en tiempo real Tingo Tango - Prof. Alberto Araque A.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
