@@ -154,7 +154,7 @@
   <div class="card">
     <div class="top-bar">
       <span id="contadorSala">Conectados: 0</span>
-      <button id="btnMusica" class="btn-audio" onclick="toggleMusica()">🎵 Música: ON</button>
+      <button id="btnMusica" class="btn-audio" onclick="toggleMusica()">🎵 Suspenso: ON</button>
     </div>
 
     <h1>TINGO TANGO 🤾</h1>
@@ -192,116 +192,181 @@
 
   <script>
     const socket = io();
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
 
     let musicaActiva = true;
-    let ritmoInterval = null;
-    let pasoRitmo = 0;
+    let suspensoInterval = null;
+    let pasoSuspenso = 0;
 
-    function toggleMusica() {
-      musicaActiva = !musicaActiva;
-      document.getElementById('btnMusica').innerText = musicaActiva ? '🎵 Música: ON' : '🔇 Música: OFF';
-      if (!musicaActiva) {
-        detenerMusicaFondo();
+    function asegurarAudio() {
+      if (!audioCtx) {
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
       }
     }
 
-    function iniciarMusicaFondo() {
-      detenerMusicaFondo();
-      if (!musicaActiva || audioCtx.state === 'suspended') return;
+    function toggleMusica() {
+      musicaActiva = !musicaActiva;
+      document.getElementById('btnMusica').innerText = musicaActiva ? '🎵 Suspenso: ON' : '🔇 Suspenso: OFF';
+      if (!musicaActiva) {
+        detenerSuspenso();
+      } else {
+        asegurarAudio();
+      }
+    }
 
-      const notasBase = [261.63, 293.66, 329.63, 392.00, 440.00, 392.00, 329.63, 293.66];
-      pasoRitmo = 0;
+    function tocarNotaSuspenso(freq, duracion, tipo, volumen, inicio) {
+      const osc = audioCtx.createOscillator();
+      const filtro = audioCtx.createBiquadFilter();
+      const gain = audioCtx.createGain();
 
-      ritmoInterval = setInterval(() => {
-        if (!musicaActiva) return;
+      osc.type = tipo;
+      osc.frequency.setValueAtTime(freq, inicio);
 
-        const now = audioCtx.currentTime;
-        const freq = notasBase[pasoRitmo % notasBase.length];
+      filtro.type = 'lowpass';
+      filtro.frequency.setValueAtTime(950, inicio);
 
+      gain.gain.setValueAtTime(0.001, inicio);
+      gain.gain.linearRampToValueAtTime(volumen, inicio + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0008, inicio + duracion);
+
+      osc.connect(filtro);
+      filtro.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start(inicio);
+      osc.stop(inicio + duracion + 0.02);
+    }
+
+    function tocarLatido(inicio) {
+      // Doble pulso tipo latido de suspenso (lub-dub)
+      const golpes = [0, 0.14];
+      golpes.forEach((offset, idx) => {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, now);
+        const t = inicio + offset;
+        const fInicio = idx === 0 ? 92 : 74;
 
-        gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.06, now + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(fInicio, t);
+        osc.frequency.exponentialRampToValueAtTime(38, t + 0.11);
+
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.24, t + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
 
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        osc.start(now);
-        osc.stop(now + 0.24);
 
-        if (pasoRitmo % 2 === 0) {
-          const kickOsc = audioCtx.createOscillator();
-          const kickGain = audioCtx.createGain();
-          kickOsc.type = 'sine';
-          kickOsc.frequency.setValueAtTime(110, now);
-          kickOsc.frequency.exponentialRampToValueAtTime(48, now + 0.12);
-
-          kickGain.gain.setValueAtTime(0.08, now);
-          kickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
-
-          kickOsc.connect(kickGain);
-          kickGain.connect(audioCtx.destination);
-          kickOsc.start(now);
-          kickOsc.stop(now + 0.14);
-        }
-
-        pasoRitmo++;
-      }, 260);
+        osc.start(t);
+        osc.stop(t + 0.13);
+      });
     }
 
-    function detenerMusicaFondo() {
-      if (ritmoInterval) {
-        clearInterval(ritmoInterval);
-        ritmoInterval = null;
+    function iniciarSuspenso() {
+      detenerSuspenso();
+      asegurarAudio();
+      if (!musicaActiva || !audioCtx) return;
+
+      // Escala cromática / menor tensa de suspenso (Re menor / semitonos de tensión)
+      const melodiaTensa = [
+        146.83, 155.56, 146.83, 220.00,
+        207.65, 196.00, 155.56, 146.83
+      ];
+      const pedalGrave = [73.42, 73.42, 69.30, 65.41];
+
+      pasoSuspenso = 0;
+
+      const ejecutarPaso = () => {
+        if (!musicaActiva || !audioCtx || audioCtx.state !== 'running') return;
+
+        const now = audioCtx.currentTime;
+        const notaAlta = melodiaTensa[pasoSuspenso % melodiaTensa.length];
+
+        // Melodía de suspenso
+        tocarNotaSuspenso(notaAlta, 0.28, 'sawtooth', 0.09, now);
+        // Armónico sutil una quinta arriba en ciertos pasos
+        if (pasoSuspenso % 2 === 1) {
+          tocarNotaSuspenso(notaAlta * 1.498, 0.24, 'triangle', 0.06, now);
+        }
+
+        // Bajo sostenido cada 2 pasos
+        if (pasoSuspenso % 2 === 0) {
+          const bajo = pedalGrave[Math.floor(pasoSuspenso / 2) % pedalGrave.length];
+          tocarNotaSuspenso(bajo, 0.54, 'triangle', 0.16, now);
+        }
+
+        // Latido de tensión cada 4 pasos
+        if (pasoSuspenso % 4 === 0) {
+          tocarLatido(now);
+        }
+
+        pasoSuspenso++;
+      };
+
+      ejecutarPaso();
+      suspensoInterval = setInterval(ejecutarPaso, 290);
+    }
+
+    function detenerSuspenso() {
+      if (suspensoInterval) {
+        clearInterval(suspensoInterval);
+        suspensoInterval = null;
       }
     }
 
     function reproducirSonidoTingo() {
       if (!musicaActiva) return;
+      asegurarAudio();
+      if (!audioCtx || audioCtx.state !== 'running') return;
+
       const now = audioCtx.currentTime;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
+
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(640, now);
-      gain.gain.setValueAtTime(0.09, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(780, now + 0.09);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.14, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+
       osc.connect(gain);
       gain.connect(audioCtx.destination);
+
       osc.start(now);
-      osc.stop(now + 0.1);
+      osc.stop(now + 0.12);
     }
 
     function reproducirSonidoTango() {
-      detenerMusicaFondo();
+      detenerSuspenso();
       if (!musicaActiva) return;
+      asegurarAudio();
+      if (!audioCtx || audioCtx.state !== 'running') return;
 
       const now = audioCtx.currentTime;
-      const freqs = [220, 185, 146.83];
-      freqs.forEach((f, idx) => {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sawtooth';
-        const start = now + idx * 0.12;
-        osc.frequency.setValueAtTime(f, start);
-        gain.gain.setValueAtTime(0.14, start);
-        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.45);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(start);
-        osc.stop(start + 0.48);
+      // Golpe dramático de detención (¡TANGO!)
+      const acordesCaida = [
+        { freq: 146.83, delay: 0, dur: 0.45 },
+        { freq: 110.00, delay: 0.14, dur: 0.45 },
+        { freq: 98.00,  delay: 0.28, dur: 0.65 }
+      ];
+
+      acordesCaida.forEach((item) => {
+        const start = now + item.delay;
+        tocarNotaSuspenso(item.freq, item.dur, 'sawtooth', 0.18, start);
+        tocarNotaSuspenso(item.freq * 0.5, item.dur, 'sine', 0.22, start);
       });
     }
 
     function unirme() {
       const nombre = document.getElementById('nombreInput').value.trim();
       if (nombre) {
-        if (audioCtx.state === 'suspended') {
-          audioCtx.resume();
-        }
+        asegurarAudio();
         socket.emit('unirse', nombre);
         document.getElementById('registro').style.display = 'none';
         document.getElementById('pantallaJuego').style.display = 'block';
@@ -309,9 +374,7 @@
     }
 
     function iniciar() {
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
+      asegurarAudio();
       socket.emit('iniciarJuego');
     }
 
@@ -328,8 +391,8 @@
     });
 
     socket.on('estadoPelota', (data) => {
-      if (!ritmoInterval) {
-        iniciarMusicaFondo();
+      if (!suspensoInterval && musicaActiva) {
+        iniciarSuspenso();
       }
       document.getElementById('seccionPenitencia').style.display = 'none';
       document.getElementById('estado').innerText = 'Tingo, tingo, tingo...';
